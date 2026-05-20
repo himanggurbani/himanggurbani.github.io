@@ -1,0 +1,12 @@
+{
+  "name": "energy-threads-visualizer",
+  "version": "1.0.0",
+  "description": "Desktop Shell Package for Cyberpunk Hand Gesture Visualizer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^31.0.0"
+  }
+}
