@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Premium Cyberpunk Gesture Visualizer — Neon Energy Threads, Vector Projection Cyber-Rain, Gesture Attractors, and Aspect Centering.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self' blob: data:;">
+  <title>Energy Threads — Hand Gesture Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #050508;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      color: #c0c0d0;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #webcam { display: none; }
+    #canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #vignette {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.65) 100%);
+      z-index: 3;
+    }
+
+    #scanlines {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 4;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.035) 2px, rgba(0, 0, 0, 0.035) 4px);
+    }
+
+    /* HUD Top Bar */
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(180deg, rgba(5,5,8,0.9) 0%, rgba(5,5,8,0.4) 60%, transparent 100%);
+      pointer-events: none;
+    }
+    #hud * { pointer-events: auto; }
+    
+    .hud-left {
+      display: flex; align-items: center; gap: 20px;
+    }
+    #hud h1 {
+      font-family: 'Orbitron', sans-serif; font-weight: 900;
+      font-size: 1.1rem; letter-spacing: 4px; text-transform: uppercase;
+      background: linear-gradient(90deg, #00f0ff, #b366ff, #ff3399);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    /* Webcam Selector */
+    .cam-selector {
+      background: rgba(10, 10, 15, 0.6);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 6px;
+      color: #9090b0;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      padding: 6px 12px;
+      outline: none;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+    .cam-selector:hover, .cam-selector:focus {
+      border-color: rgba(0, 240, 255, 0.6);
+      color: #00f0ff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+    }
+
+    .hud-right {
+      display: flex; align-items: center; gap: 16px;
+    }
+
+    /* Gesture badge */
+    #gesture-badge {
+      font-family: 'Orbitron', sans-serif; font-size: 0.6rem;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 6px 16px; border-radius: 20px;
+      border: 1px solid transparent; background: transparent;
+      transition: all 0.4s;
+      white-space: nowrap;
+      opacity: 0; transform: translateY(-5px);
+    }
+    #gesture-badge.vis {
+      opacity: 1; transform: translateY(0);
+      border-color: var(--gc, #00f0ff);
+      background: rgba(0, 240, 255, 0.05);
+      color: var(--gc, #00f0ff);
+      box-shadow: 0 0 15px color-mix(in srgb, var(--gc, #00f0ff) 40%, transparent);
+    }
+
+    #status {
+      font-family: 'Orbitron', sans-serif; font-size: 0.65rem;
+      letter-spacing: 2px; text-transform: uppercase;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #status-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #333;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    #status-dot.active {
+      background: #00f0ff;
+      box-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff80;
+    }
+
+    /* Large Gesture Emoji */
+    #gesture-emoji {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      font-size: 150px;
+      pointer-events: none;
+      z-index: 8;
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      filter: drop-shadow(0 0 40px rgba(0, 240, 255, 0.25));
+    }
+    #gesture-emoji.vis {
+      opacity: 0.65;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Cyberpunk Music Player in HUD */
+    .cyber-player {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(10, 10, 15, 0.65);
+      border: 1px solid rgba(179, 102, 255, 0.2);
+      border-radius: 6px;
+      padding: 4px 10px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.3s;
+    }
+    .cyber-player:hover {
+      border-color: rgba(179, 102, 255, 0.5);
+    }
+    .player-select {
+      background: transparent;
+      border: none;
+      color: #b366ff;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.58rem;
+      letter-spacing: 1px;
+      outline: none;
+      cursor: pointer;
+      max-width: 140px;
+    }
+    .player-select option {
+      background: #0a0a0f;
+      color: #b366ff;
+    }
+    .player-btn {
+      background: transparent;
+      border: none;
+      color: #b366ff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      outline: none;
+      transition: transform 0.2s, color 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .player-btn:hover {
+      color: #ff3399;
+      transform: scale(1.15);
+    }
+    .file-loader {
+      display: none;
+    }
+    .file-loader-label {
+      font-size: 0.7rem;
+      color: #b366ff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 0.2s;
+    }
+    .file-loader-label:hover {
+      color: #ff3399;
+    }
+
+    /* Master Volume Side Overlay Indicator */
+    #vol-wrap {
+      position: fixed;
+      left: 36px;
+      top: 50%;
+      transform: translateY(-50%) translateX(-40px);
+      width: 14px;
+      height: 220px;
+      background: rgba(10, 10, 15, 0.5);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 20px;
+      z-index: 15;
+      padding: 3px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+      pointer-events: none;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    #vol-wrap.vis {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+    #vol-fill {
+      width: 100%;
+      height: 50%;
+      border-radius: 10px;
+      background: linear-gradient(to top, #00f0ff, #b366ff, #ff3399);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+      transition: height 0.08s ease-out;
+    }
+    #vol-pct {
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.58rem;
+      color: #00f0ff;
+      letter-spacing: 1px;
+    }
+    #vol-label {
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.48rem;
+      color: #b366ff;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Controls Panel */
+    #controls {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      background: linear-gradient(0deg, rgba(5,5,8,0.95) 0%, rgba(5,5,8,0.3) 60%, transparent 100%);
+      pointer-events: none; flex-wrap: wrap;
+    }
+    #controls button {
+      pointer-events: auto;
+      font-family: 'Orbitron', sans-serif; font-size: 0.55rem;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 8px 16px; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 5px; background: rgba(255,255,255,0.03);
+      color: #707085; cursor: pointer; transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+    #controls button:hover {
+      border-color: rgba(0, 240, 255, 0.4); color: #00f0ff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.12);
+    }
+    #controls button.on {
+      border-color: rgba(0, 240, 255, 0.6); color: #00f0ff;
+      background: rgba(0, 240, 255, 0.05);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+    }
+    #controls button.special-btn {
+      border-color: rgba(179, 102, 255, 0.3); color: #b366ff;
+    }
+    #controls button.special-btn:hover {
+      border-color: rgba(179, 102, 255, 0.6); color: #b366ff;
+      box-shadow: 0 0 12px rgba(179, 102, 255, 0.15);
+    }
+    #controls button.special-btn.on {
+      border-color: rgba(179, 102, 255, 0.65); color: #b366ff;
+      background: rgba(179, 102, 255, 0.06);
+      box-shadow: 0 0 15px rgba(179, 102, 255, 0.15);
+    }
+    #controls button.meeting-btn {
+      border-color: rgba(255, 51, 153, 0.3); color: #ff3399;
+    }
+    #controls button.meeting-btn:hover {
+      border-color: rgba(255, 51, 153, 0.6); color: #ff3399;
+      box-shadow: 0 0 12px rgba(255, 51, 153, 0.15);
+    }
+    #controls button.meeting-btn.on {
+      border-color: rgba(255, 51, 153, 0.65); color: #ff3399;
+      background: rgba(255, 51, 153, 0.06);
+      box-shadow: 0 0 15px rgba(255, 51, 153, 0.15);
+    }
+
+    #fps {
+      position: fixed; bottom: 62px; right: 28px; z-index: 10;
+      font-family: 'Orbitron', sans-serif; font-size: 0.55rem;
+      letter-spacing: 1.5px; color: rgba(255, 255, 255, 0.15);
+      pointer-events: none;
+    }
+
+    /* Initializing Loader Screen */
+    #loader {
+      position: fixed; inset: 0; z-index: 100; background: #050508;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 24px; transition: opacity 0.6s;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    #loader h2 {
+      font-family: 'Orbitron', sans-serif; font-weight: 700;
+      font-size: 0.85rem; letter-spacing: 4px; text-transform: uppercase; color: #606075;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      line-height: 1.6;
+      animation: pulseText 1.6s ease-in-out infinite alternate;
+    }
+    @keyframes pulseText {
+      from { color: #505060; text-shadow: none; }
+      to { color: #00f0ff; text-shadow: 0 0 15px rgba(0, 240, 255, 0.3); }
+    }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 2px solid rgba(0, 240, 255, 0.05); border-top-color: #00f0ff;
+      border-radius: 50%; animation: spin 0.75s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.05);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Bypass offline button inside loader */
+    #bypass-btn {
+      margin-top: 10px;
+      font-family: 'Orbitron', sans-serif; font-size: 0.55rem;
+      letter-spacing: 2px; text-transform: uppercase;
+      padding: 10px 20px; border: 1px solid rgba(0, 240, 255, 0.4);
+      border-radius: 5px; background: rgba(0, 240, 255, 0.05);
+      color: #00f0ff; cursor: pointer; transition: all 0.3s;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+      display: none;
+    }
+    #bypass-btn:hover {
+      background: rgba(0, 240, 255, 0.12);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+    }
+
+    /* Meeting Mode Toast Notice */
+    #meeting-toast {
+      position: fixed; top: 86px; left: 50%; transform: translateX(-50%);
+      z-index: 20; padding: 14px 28px; border-radius: 8px;
+      background: rgba(10, 10, 15, 0.92); border: 1px solid rgba(255, 51, 153, 0.3);
+      font-family: 'Inter', sans-serif; font-size: 0.72rem; color: #a0a0b0;
+      backdrop-filter: blur(12px); opacity: 0; transition: opacity 0.4s;
+      pointer-events: none; max-width: 500px; text-align: center;
+      line-height: 1.6; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    #meeting-toast.visible { opacity: 1; }
+    #meeting-toast strong { color: #ff3399; letter-spacing: 1px; }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE — TABLETS (≤ 768px)
+       ═══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      #hud {
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .hud-left {
+        gap: 10px;
+        flex-wrap: wrap;
+        width: 100%;
+        justify-content: space-between;
+      }
+      #hud h1 {
+        font-size: 0.85rem;
+        letter-spacing: 2.5px;
+      }
+      .cam-selector {
+        font-size: 0.52rem;
+        padding: 5px 8px;
+      }
+      .cyber-player {
+        padding: 3px 8px;
+        gap: 6px;
+      }
+      .player-select {
+        font-size: 0.5rem;
+        max-width: 100px;
+      }
+      .player-btn {
+        font-size: 0.7rem;
+      }
+      .hud-right {
+        gap: 10px;
+        width: 100%;
+        justify-content: flex-end;
+      }
+      #gesture-badge {
+        font-size: 0.5rem;
+        padding: 4px 10px;
+        letter-spacing: 1.5px;
+      }
+      #status {
+        font-size: 0.55rem;
+        letter-spacing: 1.5px;
+      }
+
+      #gesture-emoji {
+        font-size: 90px;
+      }
+
+      #controls {
+        padding: 10px 12px;
+        gap: 6px;
+      }
+      #controls button {
+        font-size: 0.45rem;
+        letter-spacing: 1px;
+        padding: 6px 10px;
+      }
+
+      #fps {
+        bottom: 52px;
+        right: 14px;
+        font-size: 0.48rem;
+      }
+
+      #vol-wrap {
+        left: 16px;
+        height: 160px;
+        width: 12px;
+      }
+      #vol-pct {
+        font-size: 0.48rem;
+        top: -20px;
+      }
+      #vol-label {
+        font-size: 0.4rem;
+        bottom: -20px;
+      }
+
+      #meeting-toast {
+        top: 70px;
+        padding: 10px 16px;
+        font-size: 0.62rem;
+        max-width: 90vw;
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE — PHONES (≤ 480px)
+       ═══════════════════════════════════════════ */
+    @media (max-width: 480px) {
+      #hud {
+        padding: 8px 10px;
+        gap: 6px;
+      }
+      .hud-left {
+        gap: 6px;
+      }
+      #hud h1 {
+        font-size: 0.65rem;
+        letter-spacing: 2px;
+      }
+      .cam-selector {
+        font-size: 0.45rem;
+        padding: 4px 6px;
+        max-width: 100px;
+      }
+
+      /* Hide the music player on very small screens — too cramped */
+      .cyber-player {
+        display: none;
+      }
+
+      .hud-right {
+        gap: 6px;
+      }
+      #gesture-badge {
+        font-size: 0.42rem;
+        padding: 3px 8px;
+        letter-spacing: 1px;
+      }
+      #status {
+        font-size: 0.45rem;
+        letter-spacing: 1px;
+        gap: 5px;
+      }
+      #status-dot {
+        width: 5px;
+        height: 5px;
+      }
+
+      #gesture-emoji {
+        font-size: 60px;
+        filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.2));
+      }
+
+      #controls {
+        padding: 8px 8px 12px;
+        gap: 5px;
+      }
+      #controls button {
+        font-size: 0.38rem;
+        letter-spacing: 0.8px;
+        padding: 5px 7px;
+        border-radius: 4px;
+      }
+
+      #fps {
+        bottom: 46px;
+        right: 10px;
+        font-size: 0.42rem;
+      }
+
+      #vol-wrap {
+        left: 10px;
+        height: 120px;
+        width: 10px;
+      }
+      #vol-pct {
+        font-size: 0.42rem;
+        top: -18px;
+      }
+      #vol-label {
+        font-size: 0.36rem;
+        bottom: -18px;
+      }
+
+      #meeting-toast {
+        top: 60px;
+        padding: 8px 12px;
+        font-size: 0.55rem;
+        max-width: 92vw;
+      }
+
+      #loader h2 {
+        font-size: 0.6rem;
+        letter-spacing: 2.5px;
+        padding: 0 20px;
+      }
+      .spinner {
+        width: 32px;
+        height: 32px;
+      }
+      #bypass-btn {
+        font-size: 0.45rem;
+        padding: 8px 14px;
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE — TINY PHONES (≤ 360px)
+       ═══════════════════════════════════════════ */
+    @media (max-width: 360px) {
+      #hud h1 {
+        font-size: 0.55rem;
+        letter-spacing: 1.5px;
+      }
+      .cam-selector {
+        display: none;
+      }
+      #controls button {
+        font-size: 0.34rem;
+        padding: 4px 5px;
+        letter-spacing: 0.5px;
+      }
+      #gesture-emoji {
+        font-size: 44px;
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       TOUCH DEVICE — larger hit targets
+       ═══════════════════════════════════════════ */
+    @media (hover: none) and (pointer: coarse) {
+      #controls button {
+        min-height: 36px;
+        min-width: 44px;
+      }
+      .cam-selector {
+        min-height: 32px;
+      }
+      .player-btn {
+        min-width: 32px;
+        min-height: 32px;
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       LANDSCAPE PHONES — tighter vertical spacing
+       ═══════════════════════════════════════════ */
+    @media (max-height: 500px) {
+      #hud {
+        padding: 6px 12px;
+      }
+      #hud h1 {
+        font-size: 0.6rem;
+      }
+      .cyber-player {
+        display: none;
+      }
+      #controls {
+        padding: 6px 10px;
+      }
+      #controls button {
+        padding: 4px 8px;
+        font-size: 0.4rem;
+      }
+      #gesture-emoji {
+        font-size: 50px;
+      }
+      #vol-wrap {
+        height: 100px;
+      }
+      #fps {
+        bottom: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Cyberpunk Init Loader -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <h2 id="loader-title">ENERGY THREADS — INITIALIZING</h2>
+    <button id="bypass-btn">Bypass to Offline HUD</button>
+  </div>
+
+  <video id="webcam" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+
+  <div id="vignette"></div>
+  <div id="scanlines"></div>
+  <div id="gesture-emoji"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-left">
+      <h1>Energy Threads</h1>
+      <select id="cam-select" class="cam-selector">
+        <option value="">Default Camera</option>
+      </select>
+      
+      <!-- Audio Synthwave Player -->
+      <div class="cyber-player">
+        <button id="player-play" class="player-btn">▶</button>
+        <select id="player-track" class="player-select">
+          <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Cyber Grid Track 1</option>
+          <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3">Synth Shift Track 2</option>
+          <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3">Cyber Punk Track 3</option>
+          <option value="local">Load Local MP3...</option>
+        </select>
+        <input type="file" id="local-file" class="file-loader" accept="audio/*">
+        <label for="local-file" id="file-label" class="file-loader-label" title="Load Audio">📂</label>
+      </div>
+    </div>
+    
+    <div class="hud-right">
+      <div id="gesture-badge"></div>
+      <div id="status">
+        <div id="status-dot"></div>
+        <span id="status-text">Scanning…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD Volume side panel -->
+  <div id="vol-wrap">
+    <span id="vol-pct">50%</span>
+    <div id="vol-fill"></div>
+    <span id="vol-label">Volume</span>
+  </div>
+
+  <!-- Controls Panel -->
+  <div id="controls">
+    <button id="btn-threads" class="on">Threads</button>
+    <button id="btn-cross">Cross-Hand</button>
+    <button id="btn-rain" class="special-btn">Cyber-Rain</button>
+    <button id="btn-ink" class="special-btn">Pointer Ink</button>
+    <button id="btn-orbit">Orbit Attraction</button>
+    <button id="btn-particles">Particles</button>
+    <button id="btn-landmarks">Landmarks</button>
+    <button id="btn-gestures" class="on">Gestures</button>
+    <button id="btn-glitch" class="special-btn">Glitch Feed</button>
+    <button id="btn-audio" class="special-btn">Audio Roll</button>
+    <button id="btn-meeting" class="meeting-btn">📹 Meeting Mode</button>
+  </div>
+
+  <div id="fps">-- FPS</div>
+
+  <!-- Meeting Mode Toast Notice -->
+  <div id="meeting-toast">
+    <strong>MEETING MODE RUNNING</strong><br>
+    All HUD details and overlays cropped for a clean camera sharing feed.<br>
+    Select Google Meet → Present → This browser tab.
+  </div>
+
+  <!-- MediaPipe dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <script>
+  // ═══════════════════════════════════════════
+  // CONFIG
+  // ═══════════════════════════════════════════
+  const CFG = {
+    camWidth: 640,
+    camHeight: 480,
+    smoothFactor: 0.25,
+    feedOpacity: 0.70,
+    feedSaturation: 0.30,
+    feedBrightness: 0.85,
+  };
+
+  // ═══════════════════════════════════════════
+  // DOM REFS
+  // ═══════════════════════════════════════════
+  const video        = document.getElementById('webcam');
+  const canvas       = document.getElementById('canvas');
+  const ctx          = canvas.getContext('2d');
+  const loader       = document.getElementById('loader');
+  const loaderTitle  = document.getElementById('loader-title');
+  const bypassBtn    = document.getElementById('bypass-btn');
+  const statusDot    = document.getElementById('status-dot');
+  const statusText   = document.getElementById('status-text');
+  const fpsEl        = document.getElementById('fps');
+  const gestureBadge = document.getElementById('gesture-badge');
+  const gestureEmoji = document.getElementById('gesture-emoji');
+  const meetingToast = document.getElementById('meeting-toast');
+  const camSelect    = document.getElementById('cam-select');
+
+  // Audio refs
+  const playBtn      = document.getElementById('player-play');
+  const trackSelect  = document.getElementById('player-track');
+  const localFile    = document.getElementById('local-file');
+  const fileLabel    = document.getElementById('file-label');
+  const volWrap      = document.getElementById('vol-wrap');
+  const volFill      = document.getElementById('vol-fill');
+  const volPct       = document.getElementById('vol-pct');
+
+  // ═══════════════════════════════════════════
+  // MUSIC PLAYER SETUP
+  // ═══════════════════════════════════════════
+  let audioPlayer = new Audio();
+  audioPlayer.crossOrigin = "anonymous";
+  audioPlayer.src = trackSelect.value;
+  audioPlayer.loop = true;
+  let isPlaying = false;
+  let currentVolume = 0.5;
+  audioPlayer.volume = currentVolume;
+
+  playBtn.addEventListener('click', () => {
+    if (isPlaying) {
+      audioPlayer.pause();
+      playBtn.textContent = '▶';
+      isPlaying = false;
+    } else {
+      audioPlayer.play().catch(e => console.log("Playback blocked or failed:", e));
+      playBtn.textContent = '⏸';
+      isPlaying = true;
+    }
+  });
+
+  trackSelect.addEventListener('change', () => {
+    if (trackSelect.value === 'local') {
+      localFile.click();
+    } else {
+      const playingState = isPlaying;
+      audioPlayer.src = trackSelect.value;
+      if (playingState) {
+        audioPlayer.play().catch(e => console.log("Playback failed:", e));
+      }
+    }
+  });
+
+  localFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      const playingState = isPlaying;
+      let opt = trackSelect.querySelector('option[value="local"]');
+      opt.textContent = `Local: ${file.name.substring(0, 15)}...`;
+      audioPlayer.src = url;
+      if (playingState) {
+        audioPlayer.play().catch(e => console.log("Playback failed:", e));
+      }
+    }
+  });
+
+  function drawVolume(vol) {
+    currentVolume = Math.max(0, Math.min(1, vol));
+    audioPlayer.volume = currentVolume;
+    volFill.style.height = `${currentVolume * 100}%`;
+    volPct.textContent = `${Math.round(currentVolume * 100)}%`;
+    if (window.electronAPI && typeof window.electronAPI.setVolume === 'function') {
+      window.electronAPI.setVolume(currentVolume);
+    }
+    if (window.electronAPI && typeof window.electronAPI.setSystemVolume === 'function') {
+      window.electronAPI.setSystemVolume(currentVolume);
+    }
+  }
+
+  function hideVolume() {
+    volWrap.classList.remove('vis');
+  }
+
+  // ═══════════════════════════════════════════
+  // VISUAL STATE VARIABLES
+  // ═══════════════════════════════════════════
+  let showThreads   = true;
+  let showCross     = false;
+  let showRain      = false;
+  let showInk       = false;
+  let showOrbit     = false;
+  let showParticles = false;
+  let showLandmarks = false;
+  let showGestures  = true;
+  let showGlitch    = false;
+  let audioActive   = false;
+  let meetingMode   = false;
+
+  let W = 0, H = 0;
+  let latestResults  = null;
+  let smoothedHands  = [null, null];
+  let time = 0;
+
+  // Aspect correct camera feed bounding metrics
+  let camX = 0, camY = 0, camW = 0, camH = 0;
+
+  // Gesture Recognition Variables
+  let gestureHistory = [];
+  let confirmedGesture = 'none';
+  let gestureActivatedTime = 0;
+  const GESTURE_WINDOW = 8;
+
+  // Visual Cyber-Rain Arrays
+  const rainDrops = [];
+  const MAX_RAIN = 180;
+  const splashes = [];
+
+  // Glowing Pointer Ink Array
+  const inkPoints = [];
+  const MAX_INK_AGE = 50;
+  
+  // Custom gravity particles
+  const particles = [];
+  const MAX_PARTICLES = 160;
+
+  // Wrists separation explosion trigger
+  let lastWristDist = 0;
+  let explodeCooldown = 0;
+  let shakeIntensity = 0;
+  let screenFlash = 0;
+
+  // FPS metric
+  let frameCount = 0, lastFpsTime = 0;
+
+  // Electron Master Window Switch gesture lock
+  let windowSwitchCooldown = 0;
+
+  // ═══════════════════════════════════════════
+  // NEON COLOR PALETTE
+  // ═══════════════════════════════════════════
+  const NEON_COLORS = [
+    'hsl(185, 100%, 50%)',  // cyan
+    'hsl(270, 100%, 70%)',  // purple
+    'hsl(330, 100%, 60%)',  // hot pink
+    'hsl(160, 100%, 50%)',  // teal
+    'hsl(45,  100%, 55%)',  // gold
+    'hsl(200, 100%, 60%)',  // sky blue
+    'hsl(300, 80%,  65%)',  // magenta
+    'hsl(120, 100%, 50%)',  // lime
+    'hsl(15,  100%, 55%)',  // orange
+    'hsl(240, 80%,  60%)',  // indigo
+  ];
+
+  // ═══════════════════════════════════════════
+  // UI BINDING TOGGLES
+  // ═══════════════════════════════════════════
+  function setupToggle(btnId, getter, setter) {
+    const btn = document.getElementById(btnId);
+    btn.addEventListener('click', () => {
+      setter(!getter());
+      btn.classList.toggle('on', getter());
+    });
+  }
+  setupToggle('btn-threads',   () => showThreads,   v => showThreads = v);
+  setupToggle('btn-cross',     () => showCross,     v => showCross = v);
+  setupToggle('btn-rain',      () => showRain,      v => showRain = v);
+  setupToggle('btn-ink',       () => showInk,       v => showInk = v);
+  setupToggle('btn-orbit',     () => showOrbit,     v => showOrbit = v);
+  setupToggle('btn-particles', () => showParticles, v => showParticles = v);
+  setupToggle('btn-landmarks', () => showLandmarks, v => showLandmarks = v);
+  setupToggle('btn-gestures',  () => showGestures,  v => showGestures = v);
+  setupToggle('btn-glitch',    () => showGlitch,    v => showGlitch = v);
+  setupToggle('btn-audio',     () => audioActive,   v => {
+    audioActive = v;
+    if (v) {
+      volWrap.classList.add('vis');
+    } else {
+      volWrap.classList.remove('vis');
+    }
+  });
+
+  // Meeting Mode
+  document.getElementById('btn-meeting').addEventListener('click', () => {
+    meetingMode = !meetingMode;
+    document.getElementById('btn-meeting').classList.toggle('on', meetingMode);
+    meetingToast.classList.toggle('visible', meetingMode);
+    
+    const hud = document.getElementById('hud');
+    const controls = document.getElementById('controls');
+    const vignette = document.getElementById('vignette');
+    const scanlines = document.getElementById('scanlines');
+
+    if (meetingMode) {
+      hud.style.display = 'none';
+      controls.style.opacity = '0.35';
+      vignette.style.display = 'none';
+      scanlines.style.display = 'none';
+      fpsEl.style.display = 'none';
+      setTimeout(() => meetingToast.classList.remove('visible'), 4000);
+    } else {
+      hud.style.display = '';
+      controls.style.opacity = '';
+      vignette.style.display = '';
+      scanlines.style.display = '';
+      fpsEl.style.display = '';
+    }
+  });
+
+  // ═══════════════════════════════════════════
+  // ASPECT METRIC CENTERING
+  // ═══════════════════════════════════════════
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+
+    const screenAspect = W / H;
+    const camAspect = CFG.camWidth / CFG.camHeight;
+
+    if (screenAspect > camAspect) {
+      camH = H;
+      camW = H * camAspect;
+      camX = (W - camW) / 2;
+      camY = 0;
+    } else {
+      camW = W;
+      camH = W / camAspect;
+      camX = 0;
+      camY = (H - camH) / 2;
+    }
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  video.addEventListener('loadedmetadata', () => {
+    if (video.videoWidth && video.videoHeight) {
+      CFG.camWidth = video.videoWidth;
+      CFG.camHeight = video.videoHeight;
+      resize();
+    }
+  });
+
+  // ═══════════════════════════════════════════
+  // PIXEL REMAPPING (Mirror + Aspect)
+  // ═══════════════════════════════════════════
+  function remapX(nx) { return camX + (1 - nx) * camW; }
+  function remapY(ny) { return camY + ny * camH; }
+
+  // ═══════════════════════════════════════════
+  // EMA JITTER FILTER
+  // ═══════════════════════════════════════════
+  function smoothLandmarks(rawLandmarks, handIdx) {
+    const alpha = CFG.smoothFactor;
+    if (!smoothedHands[handIdx]) {
+      smoothedHands[handIdx] = rawLandmarks.map(lm => ({ x: lm.x, y: lm.y, z: lm.z }));
+      return smoothedHands[handIdx];
+    }
+    const prev = smoothedHands[handIdx];
+    for (let i = 0; i < rawLandmarks.length; i++) {
+      const dx = rawLandmarks[i].x - prev[i].x;
+      const dy = rawLandmarks[i].y - prev[i].y;
+      // Teleportation threshold: if movement > 0.035 in normalized space, snap
+      if (dx * dx + dy * dy > 0.035) {
+        prev[i].x = rawLandmarks[i].x;
+        prev[i].y = rawLandmarks[i].y;
+        prev[i].z = rawLandmarks[i].z;
+      } else {
+        prev[i].x += dx * (1 - alpha);
+        prev[i].y += dy * (1 - alpha);
+        prev[i].z += (rawLandmarks[i].z - prev[i].z) * (1 - alpha);
+      }
+    }
+    return prev;
+  }
+
+  // ═══════════════════════════════════════════
+  // MULTI-PASS NEON GLOW LINE
+  // ═══════════════════════════════════════════
+  function drawNeonLine(x1, y1, x2, y2, color) {
+    ctx.lineCap = 'round';
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Pass 1: Outer Neon Glow Aura
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 14;
+    ctx.globalAlpha = 0.05;
+    ctx.stroke();
+
+    // Pass 2: Intermediate Glow
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 5;
+    ctx.globalAlpha = 0.15;
+    ctx.stroke();
+
+    // Pass 3: High-Intensity Core
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.75;
+    ctx.stroke();
+
+    // Pass 4: White-Hot Center Filament
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 0.8;
+    ctx.globalAlpha = 0.45;
+    ctx.stroke();
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  // ═══════════════════════════════════════════
+  // INTRA-HAND THREADS (Fingertip Pairs)
+  // ═══════════════════════════════════════════
+  const FINGERTIP_INDICES = [4, 8, 12, 16, 20];
+  const FINGERTIP_PAIRS = [];
+  for (let a = 0; a < 5; a++) {
+    for (let b = a + 1; b < 5; b++) {
+      FINGERTIP_PAIRS.push([FINGERTIP_INDICES[a], FINGERTIP_INDICES[b]]);
+    }
+  }
+
+  function drawIntraHandThreads(landmarks) {
+    for (let p = 0; p < FINGERTIP_PAIRS.length; p++) {
+      const [i, j] = FINGERTIP_PAIRS[p];
+      const x1 = remapX(landmarks[i].x);
+      const y1 = remapY(landmarks[i].y);
+      const x2 = remapX(landmarks[j].x);
+      const y2 = remapY(landmarks[j].y);
+      const color = NEON_COLORS[(p + Math.floor(time * 0.02)) % NEON_COLORS.length];
+      drawNeonLine(x1, y1, x2, y2, color);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // CROSS-HAND THREADS
+  // ═══════════════════════════════════════════
+  function drawCrossHandThreads(landmarks1, landmarks2) {
+    let idx = 0;
+    for (let a = 0; a < 5; a++) {
+      for (let b = 0; b < 5; b++) {
+        const i = FINGERTIP_INDICES[a];
+        const j = FINGERTIP_INDICES[b];
+        const x1 = remapX(landmarks1[i].x);
+        const y1 = remapY(landmarks1[i].y);
+        const x2 = remapX(landmarks2[j].x);
+        const y2 = remapY(landmarks2[j].y);
+        const color = NEON_COLORS[(idx + Math.floor(time * 0.015)) % NEON_COLORS.length];
+        drawNeonLine(x1, y1, x2, y2, color);
+        idx++;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // LANDMARK DOTS RENDERER
+  // ═══════════════════════════════════════════
+  function drawLandmarkDots(landmarks) {
+    for (let i = 0; i < landmarks.length; i++) {
+      const x = remapX(landmarks[i].x);
+      const y = remapY(landmarks[i].y);
+      const isTip = [4, 8, 12, 16, 20].includes(i);
+      const r = isTip ? 5 : 3;
+      const color = isTip ? '#00f0ff' : '#b366ff';
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.08;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.6;
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // CYBER-RAIN WITH VECTOR DEFLECTION
+  // ═══════════════════════════════════════════
+  function initRainDrop() {
+    return {
+      x: camX + Math.random() * camW,
+      y: camY - Math.random() * camH * 0.3,
+      vx: 0,
+      vy: 0.6 + Math.random() * 1.8,
+      len: 8 + Math.random() * 16,
+      alpha: 0.15 + Math.random() * 0.25,
+      hue: 185 + Math.random() * 30,
+    };
+  }
+
+  function initRain() {
+    for (let i = 0; i < MAX_RAIN; i++) {
+      const drop = initRainDrop();
+      drop.y = camY + Math.random() * camH;
+      rainDrops.push(drop);
+    }
+  }
+
+  function updateAndDrawRain(allLandmarks) {
+    ctx.lineCap = 'round';
+    for (let i = 0; i < rainDrops.length; i++) {
+      const d = rainDrops[i];
+      // Apply friction
+      d.vx *= 0.96;
+      d.vy += 0.02; // gravity
+
+      // Interaction with hand landmarks
+      for (let h = 0; h < allLandmarks.length; h++) {
+        const lms = allLandmarks[h];
+        for (let j = 0; j < lms.length; j++) {
+          const lx = remapX(lms[j].x);
+          const ly = remapY(lms[j].y);
+          const dx = d.x - lx;
+          const dy = d.y - ly;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq < 2025) { // within 45px influence
+            const dist = Math.sqrt(distSq);
+            if (dist < 1) continue;
+            const invDist = 1 / dist;
+            const force = (45 - dist) / 45;
+            d.vx += dx * invDist * force * 5.5;
+            d.vy += dy * invDist * force * 2.0;
+
+            // Fingertip collision splash
+            const isTip = j === 4 || j === 8 || j === 12 || j === 16 || j === 20;
+            if (isTip && distSq < 225 && Math.random() < 0.18) {
+              // Spawn splash sparks
+              const sparkCount = 3 + Math.floor(Math.random() * 4);
+              for (let s = 0; s < sparkCount; s++) {
+                const phi = -Math.PI * Math.random();
+                const speed = 0.8 + Math.random() * 1.5;
+                splashes.push({
+                  x: d.x,
+                  y: d.y,
+                  vx: Math.cos(phi) * speed,
+                  vy: Math.sin(phi) * speed,
+                  life: 25 + Math.random() * 15,
+                  maxLife: 40,
+                  hue: 330,
+                });
+              }
+              // Reset raindrop
+              Object.assign(d, initRainDrop());
+            }
+          }
+        }
+      }
+
+      d.x += d.vx;
+      d.y += d.vy;
+
+      // Reset if fallen off screen
+      if (d.y > camY + camH + 20 || d.x < camX - 30 || d.x > camX + camW + 30) {
+        Object.assign(d, initRainDrop());
+      }
+
+      // Draw raindrop
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - d.vx * 0.4, d.y - d.len);
+      ctx.strokeStyle = `hsla(${d.hue}, 100%, 65%, ${d.alpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.globalAlpha = d.alpha;
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+
+    // Update & draw splash sparks
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const s = splashes[i];
+      s.vy += 0.08; // gravity
+      s.x += s.vx;
+      s.y += s.vy;
+      s.life--;
+      if (s.life <= 0) {
+        splashes.splice(i, 1);
+        continue;
+      }
+      const a = s.life / s.maxLife;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${s.hue}, 100%, 70%, ${a * 0.8})`;
+      ctx.globalAlpha = a;
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // POINTER INK ENGINE
+  // ═══════════════════════════════════════════
+  function addInkPoint(x, y, color) {
+    inkPoints.push({ x, y, age: 0, maxAge: MAX_INK_AGE, color });
+  }
+
+  function updateAndDrawInk() {
+    // Age and cull points
+    for (let i = inkPoints.length - 1; i >= 0; i--) {
+      inkPoints[i].age++;
+      if (inkPoints[i].age >= inkPoints[i].maxAge) {
+        inkPoints.splice(i, 1);
+      }
+    }
+
+    // Build valid segments
+    const segments = [];
+    for (let i = 1; i < inkPoints.length; i++) {
+      const dx = inkPoints[i].x - inkPoints[i - 1].x;
+      const dy = inkPoints[i].y - inkPoints[i - 1].y;
+      if (dx * dx + dy * dy < 14400) { // 120px max gap
+        segments.push({
+          x1: inkPoints[i - 1].x, y1: inkPoints[i - 1].y,
+          x2: inkPoints[i].x, y2: inkPoints[i].y,
+          alpha: 1 - inkPoints[i].age / inkPoints[i].maxAge,
+          color: inkPoints[i].color,
+        });
+      }
+    }
+
+    // Draw segments with neon glow
+    for (const seg of segments) {
+      const a = seg.alpha;
+      ctx.lineCap = 'round';
+      ctx.globalCompositeOperation = 'lighter';
+
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, seg.y1);
+      ctx.lineTo(seg.x2, seg.y2);
+      ctx.strokeStyle = seg.color;
+      ctx.lineWidth = 10;
+      ctx.globalAlpha = a * 0.06;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, seg.y1);
+      ctx.lineTo(seg.x2, seg.y2);
+      ctx.strokeStyle = seg.color;
+      ctx.lineWidth = 4;
+      ctx.globalAlpha = a * 0.2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, seg.y1);
+      ctx.lineTo(seg.x2, seg.y2);
+      ctx.strokeStyle = seg.color;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = a * 0.8;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, seg.y1);
+      ctx.lineTo(seg.x2, seg.y2);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 0.6;
+      ctx.globalAlpha = a * 0.5;
+      ctx.stroke();
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // PARTICLE SYSTEM
+  // ═══════════════════════════════════════════
+  function spawnParticle(x, y, vx, vy, hue, life) {
+    if (particles.length >= MAX_PARTICLES) return;
+    particles.push({
+      x, y, vx, vy,
+      hue: hue || 185,
+      life: life || 60,
+      maxLife: life || 60,
+      size: 1 + Math.random() * 2.5,
+    });
+  }
+
+  function updateAndDrawParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.015; // subtle gravity
+      p.life--;
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      const a = p.life / p.maxLife;
+      ctx.globalCompositeOperation = 'lighter';
+
+      // Glow
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size + 4, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 100%, 60%, ${a * 0.08})`;
+      ctx.fill();
+
+      // Core
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${a * 0.7})`;
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // ORBIT ATTRACTION (Pinch Gesture)
+  // ═══════════════════════════════════════════
+  function applyOrbitAttraction(attractX, attractY) {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const dx = attractX - p.x;
+      const dy = attractY - p.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > 100) {
+        const dist = Math.sqrt(distSq);
+        const pull = 0.58 / dist;
+        // Radial pull
+        p.vx += dx * pull;
+        p.vy += dy * pull;
+        // Tangential swirl
+        p.vx -= dy * pull * 0.25;
+        p.vy += dx * pull * 0.25;
+      }
+    }
+
+    // Also apply to raindrops
+    if (showRain) {
+      for (let i = 0; i < rainDrops.length; i++) {
+        const d = rainDrops[i];
+        const dx = attractX - d.x;
+        const dy = attractY - d.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > 100 && distSq < 40000) {
+          const dist = Math.sqrt(distSq);
+          const pull = 0.3 / dist;
+          d.vx += dx * pull;
+          d.vy += dy * pull;
+          d.vx -= dy * pull * 0.15;
+          d.vy += dx * pull * 0.15;
+        }
+      }
+    }
+
+    // Draw attraction singularity visual
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.5 + 0.5 * Math.sin(time * 0.1);
+    for (let r = 30; r > 2; r -= 6) {
+      ctx.beginPath();
+      ctx.arc(attractX, attractY, r * (0.8 + pulse * 0.3), 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(270, 100%, 70%, ${0.04 * (1 - r / 30)})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(attractX, attractY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(270, 100%, 80%, ${0.5 + pulse * 0.3})`;
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  // ═══════════════════════════════════════════
+  // WRIST SEPARATION EXPLOSION
+  // ═══════════════════════════════════════════
+  function triggerExplosion(midX, midY) {
+    shakeIntensity = 25;
+    screenFlash = 0.55;
+    // Spawn 90+ directional particles
+    const count = 90;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const speed = 2.5 + Math.random() * 4.5;
+      spawnParticle(
+        midX, midY,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        [185, 270, 330, 45, 160][Math.floor(Math.random() * 5)],
+        50 + Math.floor(Math.random() * 40)
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // GESTURE CLASSIFIER (Majority Voting)
+  // ═══════════════════════════════════════════
+  function classifyGesture(landmarks) {
+    const lm = landmarks;
+    // Finger extension detection
+    const indexUp  = lm[8].y  < lm[6].y;
+    const middleUp = lm[12].y < lm[10].y;
+    const ringUp   = lm[16].y < lm[14].y;
+    const pinkyUp  = lm[20].y < lm[18].y;
+    const thumbUp  = lm[4].y  < lm[3].y && lm[4].y < lm[2].y;
+    const thumbDown = lm[4].y > lm[3].y && lm[4].y > lm[2].y && lm[4].y > lm[1].y;
+
+    // Thumb horizontal extension
+    const isRightHand = lm[5].x > lm[17].x;
+    const thumbOut = isRightHand ? (lm[4].x < lm[3].x) : (lm[4].x > lm[3].x);
+
+    // Pinch check (OK sign)
+    const pinchDx = lm[4].x - lm[8].x;
+    const pinchDy = lm[4].y - lm[8].y;
+    const okPinch = (pinchDx * pinchDx + pinchDy * pinchDy) < 0.0036;
+
+    // Classification rules
+    if (okPinch && middleUp && ringUp && pinkyUp) return 'ok';
+    if (indexUp && pinkyUp && !middleUp && !ringUp && !thumbUp) return 'rock';
+    if (middleUp && !indexUp && !ringUp && !pinkyUp && !thumbUp) return 'middle';
+    if (indexUp && middleUp && !ringUp && !pinkyUp) return 'peace';
+    if (indexUp && !middleUp && !ringUp && !pinkyUp) return 'pointer';
+    if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) return 'thumbsup';
+    if (thumbDown && !indexUp && !middleUp && !ringUp && !pinkyUp) return 'thumbsdown';
+    if (thumbOut && indexUp && middleUp && ringUp && pinkyUp) return 'openpalm';
+    if (!thumbOut && !indexUp && !middleUp && !ringUp && !pinkyUp) return 'fist';
+    if (indexUp && middleUp && ringUp && !pinkyUp && !thumbUp) return 'three';
+
+    return 'none';
+  }
+
+  function updateGestureVoting(rawGesture) {
+    gestureHistory.push(rawGesture);
+    if (gestureHistory.length > GESTURE_WINDOW) gestureHistory.shift();
+
+    // Count votes
+    const counts = {};
+    for (const g of gestureHistory) {
+      counts[g] = (counts[g] || 0) + 1;
+    }
+
+    let bestGesture = 'none';
+    let bestCount = 0;
+    for (const [g, c] of Object.entries(counts)) {
+      if (c > bestCount) {
+        bestCount = c;
+        bestGesture = g;
+      }
+    }
+
+    // Threshold: 5 out of 8
+    if (bestCount >= 5 && bestGesture !== confirmedGesture) {
+      confirmedGesture = bestGesture;
+      gestureActivatedTime = time;
+    } else if (bestCount < 3 && confirmedGesture !== 'none') {
+      confirmedGesture = 'none';
+    }
+  }
+
+  // Gesture metadata
+  const GESTURE_META = {
+    ok:         { emoji: '👌', label: 'Orbit', color: '#b366ff' },
+    rock:       { emoji: '🤘', label: 'Stranger', color: '#ff3333' },
+    middle:     { emoji: '🖕', label: 'Glitch', color: '#ff3399' },
+    peace:      { emoji: '✌️', label: 'Peace', color: '#00ff88' },
+    pointer:    { emoji: '☝️', label: 'Ink', color: '#00f0ff' },
+    thumbsup:   { emoji: '👍', label: 'Awesome', color: '#88ff00' },
+    thumbsdown: { emoji: '👎', label: 'Nah', color: '#ff4444' },
+    openpalm:   { emoji: '🖐️', label: 'Halt', color: '#00f0ff' },
+    fist:       { emoji: '✊', label: 'Sweep', color: '#ff8800' },
+    three:      { emoji: '🤟', label: 'Switch', color: '#ffcc00' },
+    none:       { emoji: '', label: '', color: '#00f0ff' },
+  };
+
+  function updateGestureHUD() {
+    const meta = GESTURE_META[confirmedGesture];
+    if (confirmedGesture !== 'none' && meta) {
+      gestureBadge.textContent = `${meta.emoji} ${meta.label}`;
+      gestureBadge.style.setProperty('--gc', meta.color);
+      gestureBadge.classList.add('vis');
+      gestureEmoji.textContent = meta.emoji;
+      gestureEmoji.classList.add('vis');
+    } else {
+      gestureBadge.classList.remove('vis');
+      gestureEmoji.classList.remove('vis');
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // GESTURE VISUAL EFFECTS
+  // ═══════════════════════════════════════════
+  function applyGestureEffects(allHands) {
+    if (!showGestures || confirmedGesture === 'none') return;
+
+    switch (confirmedGesture) {
+      case 'rock': // Stranger — Red lightning bolts
+        drawStrangerLightning();
+        break;
+      case 'middle': // Censored — chromatic glitch + pink wash
+        drawCensorGlitch();
+        break;
+      case 'peace': // Rainbow sweep
+        drawPeaceRainbow();
+        break;
+      case 'thumbsup': // Rising lime sparkles
+        drawThumbsUpSparkles();
+        break;
+      case 'thumbsdown': // Dripping red particles
+        drawThumbsDownDrip();
+        break;
+      case 'openpalm': // Cyan bounding frame
+        drawHaltFrame();
+        break;
+      case 'fist': // Sweep fade
+        applyFistSweep();
+        break;
+      case 'three': // Window switch hook
+        applyWindowSwitch();
+        break;
+    }
+  }
+
+  // --- Stranger Rock: Red lightning bolts ---
+  function drawStrangerLightning() {
+    const bolts = 3 + Math.floor(Math.random() * 2);
+    ctx.globalCompositeOperation = 'lighter';
+    for (let b = 0; b < bolts; b++) {
+      const startX = camX + Math.random() * camW;
+      let x = startX;
+      let y = camY;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      const segments = 8 + Math.floor(Math.random() * 6);
+      const segH = camH / segments;
+      for (let s = 0; s < segments; s++) {
+        x += (Math.random() - 0.5) * 60;
+        y += segH;
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'hsla(0, 100%, 55%, 0.6)';
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.3 + Math.random() * 0.3;
+      ctx.stroke();
+
+      // Glow pass
+      ctx.beginPath();
+      ctx.moveTo(startX, camY);
+      x = startX;
+      y = camY;
+      for (let s = 0; s < segments; s++) {
+        x += (Math.random() - 0.5) * 60;
+        y += segH;
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'hsla(0, 100%, 70%, 0.15)';
+      ctx.lineWidth = 8;
+      ctx.globalAlpha = 0.15;
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Censored: Chromatic glitch + pink wash ---
+  function drawCensorGlitch() {
+    // Pink screen wash
+    ctx.globalAlpha = 0.06;
+    ctx.fillStyle = '#ff339950';
+    ctx.fillRect(camX, camY, camW, camH);
+    ctx.globalAlpha = 1;
+
+    // Chromatic slice glitch bars
+    const sliceCount = 3 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < sliceCount; i++) {
+      const sy = camY + Math.random() * camH;
+      const sh = 2 + Math.random() * 12;
+      const sx = camX + (Math.random() - 0.5) * 20;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = `hsla(${Math.random() * 360}, 100%, 60%, 0.3)`;
+      ctx.fillRect(sx, sy, camW, sh);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Peace: Rainbow gradient sweep ---
+  function drawPeaceRainbow() {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.035;
+    const hue = (time * 3) % 360;
+    const grad = ctx.createLinearGradient(camX, camY, camX + camW, camY + camH);
+    grad.addColorStop(0, `hsl(${hue}, 100%, 50%)`);
+    grad.addColorStop(0.33, `hsl(${(hue + 120) % 360}, 100%, 50%)`);
+    grad.addColorStop(0.66, `hsl(${(hue + 240) % 360}, 100%, 50%)`);
+    grad.addColorStop(1, `hsl(${(hue + 360) % 360}, 100%, 50%)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(camX, camY, camW, camH);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Thumbs Up: Rising lime sparkles ---
+  function drawThumbsUpSparkles() {
+    if (time % 3 === 0) {
+      const x = camX + Math.random() * camW;
+      spawnParticle(x, camY + camH, (Math.random() - 0.5) * 0.5, -(1 + Math.random() * 2), 120, 60 + Math.random() * 30);
+    }
+  }
+
+  // --- Thumbs Down: Dripping red particles ---
+  function drawThumbsDownDrip() {
+    if (time % 2 === 0) {
+      const x = camX + Math.random() * camW;
+      spawnParticle(x, camY, (Math.random() - 0.5) * 0.3, 1 + Math.random() * 2, 0, 50 + Math.random() * 30);
+    }
+  }
+
+  // --- Open Palm: Cyan bounding frame ---
+  function drawHaltFrame() {
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.4 + 0.3 * Math.sin(time * 0.08);
+    const inset = 30;
+
+    // Outer glow
+    ctx.strokeStyle = `hsla(185, 100%, 50%, ${pulse * 0.15})`;
+    ctx.lineWidth = 6;
+    ctx.strokeRect(camX + inset, camY + inset, camW - inset * 2, camH - inset * 2);
+
+    // Inner frame
+    ctx.strokeStyle = `hsla(185, 100%, 55%, ${pulse * 0.5})`;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(camX + inset, camY + inset, camW - inset * 2, camH - inset * 2);
+
+    // Corner dots
+    const corners = [
+      [camX + inset, camY + inset],
+      [camX + camW - inset, camY + inset],
+      [camX + inset, camY + camH - inset],
+      [camX + camW - inset, camY + camH - inset],
+    ];
+    for (const [cx, cy] of corners) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(185, 100%, 70%, ${pulse * 0.8})`;
+      ctx.fill();
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  // --- Fist: Sweep fade ---
+  function applyFistSweep() {
+    // Fade out all particles rapidly
+    for (const p of particles) {
+      p.life = Math.max(0, p.life - 2);
+    }
+    // Fade ink
+    for (const pt of inkPoints) {
+      pt.age = Math.min(pt.maxAge, pt.age + 3);
+    }
+    // Electron desktop integration hook
+    if (window.electronAPI && typeof window.electronAPI.sweepWindows === 'function' && windowSwitchCooldown <= 0) {
+      window.electronAPI.sweepWindows();
+      windowSwitchCooldown = 60;
+    }
+  }
+
+  // --- Three Fingers: Window switch ---
+  function applyWindowSwitch() {
+    if (windowSwitchCooldown <= 0) {
+      if (window.electronAPI && typeof window.electronAPI.cycleWindow === 'function') {
+        window.electronAPI.cycleWindow();
+      }
+      windowSwitchCooldown = 45;
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // AUDIO VOLUME CONTROL
+  // ═══════════════════════════════════════════
+  function processAudioControl(allHands) {
+    if (!audioActive) return;
+    volWrap.classList.add('vis');
+
+    if (allHands.length === 1) {
+      // Single-Hand Wrist-Axis Roll
+      const lm = allHands[0];
+      const wrist = lm[0];
+      const midBase = lm[9];
+      const wx = remapX(wrist.x);
+      const wy = remapY(wrist.y);
+      const mx = remapX(midBase.x);
+      const my = remapY(midBase.y);
+      const theta = Math.atan2(my - wy, mx - wx);
+      const thetaMin = -2.356;
+      const thetaMax = -0.785;
+      let vol = (theta - thetaMin) / (thetaMax - thetaMin);
+      vol = Math.max(0, Math.min(1, vol));
+      drawVolume(vol);
+    } else if (allHands.length >= 2) {
+      // Two-Hand Wrist-Slope Tilt
+      const w0x = remapX(allHands[0][0].x);
+      const w0y = remapY(allHands[0][0].y);
+      const w1x = remapX(allHands[1][0].x);
+      const w1y = remapY(allHands[1][0].y);
+      // Determine which is left/right by x position
+      const leftX = Math.min(w0x, w1x);
+      const leftY = (w0x < w1x) ? w0y : w1y;
+      const rightX = Math.max(w0x, w1x);
+      const rightY = (w0x < w1x) ? w1y : w0y;
+      const tiltAngle = Math.atan2(rightY - leftY, rightX - leftX);
+      // Map: -0.5 rad to +0.5 rad → 0 to 1
+      let vol = 0.5 - tiltAngle * 1.0;
+      vol = Math.max(0, Math.min(1, vol));
+      drawVolume(vol);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // GLITCH FEED OVERLAY
+  // ═══════════════════════════════════════════
+  function drawGlitchFeed() {
+    if (!showGlitch) return;
+    if (Math.random() > 0.35) return; // Only glitch 65% of frames
+
+    const sliceCount = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < sliceCount; i++) {
+      const sy = Math.floor(Math.random() * H);
+      const sh = 2 + Math.floor(Math.random() * 8);
+      const offset = (Math.random() - 0.5) * 20;
+      // Chromatic split
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.08;
+      ctx.drawImage(canvas, 0, sy, W, sh, offset, sy, W, sh);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // LETTERBOX MASKING
+  // ═══════════════════════════════════════════
+  function drawLetterboxMask() {
+    if (meetingMode) return; // No masking in meeting mode
+    ctx.fillStyle = '#050508';
+    // Left pillarbox
+    if (camX > 0) ctx.fillRect(0, 0, camX + 1, H);
+    // Right pillarbox
+    if (camX + camW < W) ctx.fillRect(camX + camW - 1, 0, W - (camX + camW) + 1, H);
+    // Top letterbox
+    if (camY > 0) ctx.fillRect(0, 0, W, camY + 1);
+    // Bottom letterbox
+    if (camY + camH < H) ctx.fillRect(0, camY + camH - 1, W, H - (camY + camH) + 1);
+  }
+
+  // ═══════════════════════════════════════════
+  // CAMERA DEVICE ENUMERATION
+  // ═══════════════════════════════════════════
+  async function enumerateDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      camSelect.innerHTML = '';
+      videoDevices.forEach((dev, i) => {
+        const opt = document.createElement('option');
+        opt.value = dev.deviceId;
+        opt.textContent = dev.label || `Camera ${i + 1}`;
+        camSelect.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn('Device enumeration failed:', e);
+    }
+  }
+
+  camSelect.addEventListener('change', async () => {
+    const deviceId = camSelect.value;
+    if (!deviceId) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      video.srcObject = stream;
+    } catch (e) {
+      console.error('Camera switch failed:', e);
+    }
+  });
+
+  // ═══════════════════════════════════════════
+  // MEDIAPIPE HANDS INITIALIZATION
+  // ═══════════════════════════════════════════
+  let mpHands = null;
+  let cameraUtil = null;
+
+  async function initMediaPipe() {
+    loaderTitle.textContent = 'LOADING ML ENGINE…';
+
+    try {
+      mpHands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+      });
+
+      mpHands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.65,
+        minTrackingConfidence: 0.55,
+      });
+
+      mpHands.onResults(onResults);
+
+      loaderTitle.textContent = 'ACTIVATING WEBCAM…';
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      video.srcObject = stream;
+
+      await enumerateDevices();
+
+      cameraUtil = new Camera(video, {
+        onFrame: async () => {
+          if (mpHands) await mpHands.send({ image: video });
+        },
+        width: CFG.camWidth,
+        height: CFG.camHeight,
+      });
+
+      await cameraUtil.start();
+
+      loaderTitle.textContent = 'CALIBRATING…';
+      setTimeout(() => {
+        loader.classList.add('hidden');
+        setTimeout(() => { loader.style.display = 'none'; }, 600);
+      }, 800);
+
+    } catch (err) {
+      console.error('MediaPipe init error:', err);
+      loaderTitle.textContent = 'CAMERA OR ML LOAD FAILED';
+      bypassBtn.style.display = 'block';
+    }
+  }
+
+  bypassBtn.addEventListener('click', () => {
+    loader.classList.add('hidden');
+    setTimeout(() => { loader.style.display = 'none'; }, 600);
+  });
+
+  function onResults(results) {
+    latestResults = results;
+  }
+
+  // ═══════════════════════════════════════════
+  // MAIN RENDER LOOP
+  // ═══════════════════════════════════════════
+  function render() {
+    requestAnimationFrame(render);
+    time++;
+
+    // FPS counter
+    frameCount++;
+    const now = performance.now();
+    if (now - lastFpsTime >= 1000) {
+      fpsEl.textContent = `${frameCount} FPS`;
+      frameCount = 0;
+      lastFpsTime = now;
+    }
+
+    // Cooldown timers
+    if (explodeCooldown > 0) explodeCooldown--;
+    if (windowSwitchCooldown > 0) windowSwitchCooldown--;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, W, H);
+
+    // Screen shake
+    ctx.save();
+    if (shakeIntensity > 0.5) {
+      ctx.translate(
+        (Math.random() - 0.5) * shakeIntensity,
+        (Math.random() - 0.5) * shakeIntensity
+      );
+      shakeIntensity *= 0.90;
+    } else {
+      shakeIntensity = 0;
+    }
+
+    // Draw camera feed (desaturated, dimmed)
+    if (video.readyState >= 2) {
+      ctx.save();
+      ctx.filter = `saturate(${CFG.feedSaturation}) brightness(${CFG.feedBrightness})`;
+      ctx.globalAlpha = CFG.feedOpacity;
+      // Mirror the feed by flipping horizontally
+      ctx.translate(camX + camW, camY);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, camW, camH);
+      ctx.restore();
+    }
+
+    // Process hand data
+    const allSmoothed = [];
+    if (latestResults && latestResults.multiHandLandmarks) {
+      const hands = latestResults.multiHandLandmarks;
+      const numHands = Math.min(hands.length, 2);
+
+      // Update status indicator
+      statusDot.classList.toggle('active', numHands > 0);
+      statusText.textContent = numHands > 0 ? `${numHands} Hand${numHands > 1 ? 's' : ''}` : 'Scanning…';
+
+      for (let h = 0; h < numHands; h++) {
+        const smoothed = smoothLandmarks(hands[h], h);
+        allSmoothed.push(smoothed);
+      }
+
+      // Clear unused smoothed slots
+      for (let h = numHands; h < 2; h++) {
+        smoothedHands[h] = null;
+      }
+
+      // ---- INTRA-HAND THREADS ----
+      if (showThreads) {
+        for (const lms of allSmoothed) {
+          drawIntraHandThreads(lms);
+        }
+      }
+
+      // ---- CROSS-HAND THREADS ----
+      if (showCross && allSmoothed.length >= 2) {
+        drawCrossHandThreads(allSmoothed[0], allSmoothed[1]);
+      }
+
+      // ---- LANDMARK DOTS ----
+      if (showLandmarks) {
+        for (const lms of allSmoothed) {
+          drawLandmarkDots(lms);
+        }
+      }
+
+      // ---- POINTER INK ----
+      if (showInk && allSmoothed.length > 0) {
+        // Check if pointing gesture for any hand
+        for (const lms of allSmoothed) {
+          const raw = classifyGesture(lms);
+          if (raw === 'pointer') {
+            const tipX = remapX(lms[8].x);
+            const tipY = remapY(lms[8].y);
+            const color = NEON_COLORS[Math.floor(time * 0.03) % NEON_COLORS.length];
+            addInkPoint(tipX, tipY, color);
+          }
+        }
+      }
+
+      // ---- GESTURE CLASSIFICATION (first hand) ----
+      if (showGestures && allSmoothed.length > 0) {
+        const rawGesture = classifyGesture(allSmoothed[0]);
+        updateGestureVoting(rawGesture);
+        updateGestureHUD();
+
+        // OK gesture → Orbit attraction
+        if (confirmedGesture === 'ok' && showOrbit) {
+          for (const lms of allSmoothed) {
+            const raw = classifyGesture(lms);
+            if (raw === 'ok') {
+              const ax = (remapX(lms[4].x) + remapX(lms[8].x)) / 2;
+              const ay = (remapY(lms[4].y) + remapY(lms[8].y)) / 2;
+              applyOrbitAttraction(ax, ay);
+            }
+          }
+        }
+
+        // Apply gesture visual effects
+        applyGestureEffects(allSmoothed);
+      }
+
+      // ---- WRIST EXPLOSION DETECTION ----
+      if (allSmoothed.length >= 2) {
+        const w0x = remapX(allSmoothed[0][0].x);
+        const w0y = remapY(allSmoothed[0][0].y);
+        const w1x = remapX(allSmoothed[1][0].x);
+        const w1y = remapY(allSmoothed[1][0].y);
+        const dx = w0x - w1x;
+        const dy = w0y - w1y;
+        const handDist = Math.sqrt(dx * dx + dy * dy);
+
+        if (lastWristDist < 160 && handDist > 270 && explodeCooldown <= 0) {
+          const midX = (w0x + w1x) / 2;
+          const midY = (w0y + w1y) / 2;
+          triggerExplosion(midX, midY);
+          explodeCooldown = 65;
+        }
+        lastWristDist = handDist;
+      }
+
+      // ---- AUDIO CONTROL ----
+      processAudioControl(allSmoothed);
+
+      // ---- AMBIENT PARTICLES (spawn near fingertips) ----
+      if (showParticles) {
+        for (const lms of allSmoothed) {
+          if (time % 4 === 0) {
+            for (const tipIdx of FINGERTIP_INDICES) {
+              if (Math.random() < 0.3) {
+                const tx = remapX(lms[tipIdx].x);
+                const ty = remapY(lms[tipIdx].y);
+                spawnParticle(
+                  tx + (Math.random() - 0.5) * 10,
+                  ty + (Math.random() - 0.5) * 10,
+                  (Math.random() - 0.5) * 0.8,
+                  (Math.random() - 0.5) * 0.8,
+                  [185, 270, 330, 160, 45][tipIdx === 4 ? 0 : tipIdx === 8 ? 1 : tipIdx === 12 ? 2 : tipIdx === 16 ? 3 : 4],
+                  40 + Math.random() * 30
+                );
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // No hands detected
+      statusDot.classList.remove('active');
+      statusText.textContent = 'Scanning…';
+      if (confirmedGesture !== 'none') {
+        gestureHistory = [];
+        confirmedGesture = 'none';
+        updateGestureHUD();
+      }
+      // Clear smoothed states if no results
+      smoothedHands = [null, null];
+    }
+
+    // ---- CYBER-RAIN (independent of hand tracking) ----
+    if (showRain) {
+      updateAndDrawRain(allSmoothed);
+    }
+
+    // ---- POINTER INK RENDERING ----
+    if (showInk || inkPoints.length > 0) {
+      updateAndDrawInk();
+    }
+
+    // ---- PARTICLES ----
+    if (particles.length > 0) {
+      updateAndDrawParticles();
+    }
+
+    // ---- GLITCH FEED ----
+    drawGlitchFeed();
+
+    // ---- SCREEN FLASH ----
+    if (screenFlash > 0.01) {
+      ctx.globalAlpha = screenFlash;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+      screenFlash *= 0.85;
+    }
+
+    // ---- LETTERBOX MASKING ----
+    drawLetterboxMask();
+
+    ctx.restore(); // restore from shake transform
+  }
+
+  // ═══════════════════════════════════════════
+  // BOOTSTRAP
+  // ═══════════════════════════════════════════
+  initRain();
+  initMediaPipe();
+  render();
+
+  </script>
+</body>
+</html>
